@@ -1,9 +1,10 @@
 from django.utils.deprecation import MiddlewareMixin
-from prometheus_client import Counter, Histogram
+from prometheus_client import Counter, Histogram, push_to_gateway, REGISTRY
+import os
+from django.conf import settings
 
 from django_prometheus.conf import NAMESPACE, PROMETHEUS_LATENCY_BUCKETS
 from django_prometheus.utils import PowersOf, Time, TimeSince
-
 
 class Metrics:
     _instance = None
@@ -171,6 +172,8 @@ class PrometheusBeforeMiddleware(MiddlewareMixin):
     def process_request(self, request):
         self.metrics.requests_total.inc()
         request.prometheus_before_middleware_event = Time()
+        if os.environ.get('IM_IN_A_LAMBDA') == 'true':
+            push_to_gateway(settings.GRAFANA_CONFIG['promscale_gateway'], job='django_lambda', registry=REGISTRY)
 
     def process_response(self, request, response):
         self.metrics.responses_total.inc()
@@ -178,6 +181,8 @@ class PrometheusBeforeMiddleware(MiddlewareMixin):
             self.metrics.requests_latency_before.observe(TimeSince(request.prometheus_before_middleware_event))
         else:
             self.metrics.requests_unknown_latency_before.inc()
+        if os.environ.get('IM_IN_A_LAMBDA') == 'true':
+            push_to_gateway(settings.GRAFANA_CONFIG['promscale_gateway'], job='django_lambda', registry=REGISTRY)
         return response
 
 
@@ -225,6 +230,8 @@ class PrometheusAfterMiddleware(MiddlewareMixin):
         content_length = int(request.META.get("CONTENT_LENGTH") or 0)
         self.label_metric(self.metrics.requests_body_bytes, request).observe(content_length)
         request.prometheus_after_middleware_event = Time()
+        if os.environ.get('IM_IN_A_LAMBDA') == 'true':
+            push_to_gateway(settings.GRAFANA_CONFIG['promscale_gateway'], job='django_lambda', registry=REGISTRY)
 
     def _get_view_name(self, request):
         view_name = "<unnamed view>"
@@ -246,6 +253,8 @@ class PrometheusAfterMiddleware(MiddlewareMixin):
                 transport=transport,
                 method=method,
             ).inc()
+        if os.environ.get('IM_IN_A_LAMBDA') == 'true':
+            push_to_gateway(settings.GRAFANA_CONFIG['promscale_gateway'], job='django_lambda', registry=REGISTRY)
 
     def process_template_response(self, request, response):
         if hasattr(response, "template_name"):
@@ -255,6 +264,8 @@ class PrometheusAfterMiddleware(MiddlewareMixin):
                 response=response,
                 templatename=str(response.template_name),
             ).inc()
+        if os.environ.get('IM_IN_A_LAMBDA') == 'true':
+            push_to_gateway(settings.GRAFANA_CONFIG['promscale_gateway'], job='django_lambda', registry=REGISTRY)
         return response
 
     def process_response(self, request, response):
@@ -291,6 +302,8 @@ class PrometheusAfterMiddleware(MiddlewareMixin):
             ).observe(TimeSince(request.prometheus_after_middleware_event))
         else:
             self.label_metric(self.metrics.requests_unknown_latency, request, response).inc()
+        if os.environ.get('IM_IN_A_LAMBDA') == 'true':
+            push_to_gateway(settings.GRAFANA_CONFIG['promscale_gateway'], job='django_lambda', registry=REGISTRY)
         return response
 
     def process_exception(self, request, exception):
@@ -307,3 +320,5 @@ class PrometheusAfterMiddleware(MiddlewareMixin):
             ).observe(TimeSince(request.prometheus_after_middleware_event))
         else:
             self.label_metric(self.metrics.requests_unknown_latency, request).inc()
+        if os.environ.get('IM_IN_A_LAMBDA') == 'true':
+            push_to_gateway(settings.GRAFANA_CONFIG['promscale_gateway'], job='django_lambda', registry=REGISTRY)
