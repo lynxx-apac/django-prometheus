@@ -1,10 +1,13 @@
+import logging
+
 from django.utils.deprecation import MiddlewareMixin
 from prometheus_client import Counter, Histogram, push_to_gateway, REGISTRY, CollectorRegistry
-import os
 from django.conf import settings
 
 from django_prometheus.conf import NAMESPACE, PROMETHEUS_LATENCY_BUCKETS
 from django_prometheus.utils import PowersOf, Time, TimeSince
+
+logger = logging.getLogger(__name__)
 
 
 class Metrics:
@@ -31,7 +34,11 @@ class Metrics:
 
     def push_to_gateway(self, job='django-prometheus'):
         if self.push_gateway_url:
-            push_to_gateway(self.push_gateway_url, job=job, registry=self.registry)
+            try:
+                push_to_gateway(self.push_gateway_url, job=job, registry=self.registry)
+            except Exception as e:
+                logger.error(f"Django Prometheus: Error pushing metrics url {self.push_gateway_url}: {e}. "
+                             f"Metrics will be cleared and lost to avoid a memory leak.")
             self.reset_registry()
 
     def register(self):
