@@ -36,6 +36,7 @@ class Metrics:
         if self.push_gateway_url:
             try:
                 push_to_gateway(self.push_gateway_url, job=job, registry=self.registry)
+                logger.debug(f"Django Prometheus: Metrics pushed to {self.push_gateway_url}")
             except Exception as e:
                 logger.error(f"Django Prometheus: Error pushing metrics url {self.push_gateway_url}: {e}. "
                              f"Metrics will be cleared and lost to avoid a memory leak.")
