@@ -27,10 +27,12 @@ class Metrics:
         self.push_gateway_url = getattr(settings, 'DJANGO_PROMETHEUS_PUSH_GATEWAY_URL', None)
         if self.push_gateway_url:
             self.reset_registry()
-        self.register()
+        else:
+            self.register()
 
     def reset_registry(self):
         self.registry = CollectorRegistry()
+        self.register()
 
     def push_to_gateway(self, job='django-prometheus'):
         if self.push_gateway_url:
